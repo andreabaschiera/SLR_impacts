@@ -6,7 +6,7 @@ The repository is structured to allow transparent replication of three core impa
 
 ### Overview of Scripts
 
-#### capital.R  
+#### [capital.R](https://github.com/andreabaschiera/SLR_impacts/blob/main/scripts/capital.R)  
 Computes expected shocks to built capital due to sea level rise.  
 Steps include:
 1. Loading country level DIVA asset exposure inputs
@@ -16,15 +16,15 @@ Steps include:
 5. Saving and writing CSV and RDS outputs
 6. Producing maps and a Shiny dashboard that displays interactively country exposure maps
 
-#### population.R  
+#### [population.R](https://github.com/andreabaschiera/SLR_impacts/blob/main/scripts/population.R)  
 Estimates the expected number of people affected by flooding.  
 The workflow parallels the one used in the capital script, with population exposure as the dependent variable.
 
-#### land.R  
+#### [land.R](https://github.com/andreabaschiera/SLR_impacts/blob/main/scripts/land.R)  
 Evaluates expected land loss. 
 Shocks on country land areas are by nature cumulative (land that is lost due to sea level rise does not renew each year), thus requiring slightly different calculations.
 
-#### functions/  
+#### [functions/](https://github.com/andreabaschiera/SLR_impacts/tree/main/scripts/functions)  
 Contains reusable components (with some simple validation checks to ensure consistency), among which:  
 - ISO calculations
 - Utilities for recalculating cumulative impacts
