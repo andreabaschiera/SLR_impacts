@@ -245,24 +245,23 @@ world <- tibble(ne_countries(scale = "medium", returnclass = "sf")) |> rename(lo
   mutate(locationid = if_else(iso_a3_eh %in% c("FRA", "NOR"), iso_a3_eh, locationid)) |> 
   select(locationid, geometry) |> filter(locationid != -99)
 
-# "ead": expected annual damages
-ead <- left_join(k_shock_growth_ISO, world, join_by(locationid)) 
+# "ead": 5y cum values
+ead <- left_join(k_shock_5y_ISO, world, join_by(locationid))
+# "ead_cum": cum values 2018-2070
 ead_cum <- left_join(k_shock_cum_ISO, world, join_by(locationid))
 
-ead_missing <- anti_join(world, k_shock_growth_ISO, join_by(locationid))
+ead_missing <- anti_join(world, k_shock_5y_ISO, join_by(locationid))
 
 structure <- colnames(ead |> select(rcp:time))
-cols_values <- tail(names(k_shock_growth_ISO), 5)
-ead_world <- bind_rows(ead, crossjoin_tobind(ead_missing, ead, structure, cols_values, NA))
+cols_values <- tail(names(k_shock_cum_ISO), 2)
+ead_world <- bind_rows(ead, crossjoin_tobind(ead_missing, ead, structure, cols_values, NA)) |> 
+  mutate(cumulated_shock = if_else(locationid=="NLD", NA, cumulated_shock))
 
-# cumulative values (2018-2070)
 structure2 <- colnames(ead_cum |> select(rcp:adaptation))
-cols_values2 <- tail(names(k_shock_cum_ISO), 2)
-ead_cum_world <- bind_rows(ead_cum, crossjoin_tobind(ead_missing, ead_cum, structure2, cols_values2, NA))
+ead_cum_world <- bind_rows(ead_cum, crossjoin_tobind(ead_missing, ead_cum, structure2, cols_values2, NA)) |> 
+  mutate(cumulated_shock = if_else(locationid=="NLD", NA, cumulated_shock))
 
-#data for the Netherlands are incredibly high, so I rescale them for visualisation purposes
-ead_cum_world_revisited <- ead_cum_world |> 
-  mutate(cumulated_shock = ifelse(cumulated_shock < -100, -100, cumulated_shock))
+#data for the Netherlands are wrong (for now), so I rescale them for visualisation purposes
 
 
 
@@ -275,7 +274,7 @@ plot_world_cum("capital",ead_cum_world_revisited, scen = 126, quant = 0.05, adap
 #Selection chart
 ui <- fluidPage(
   titlePanel("World map of sea level rise impacts"),
-  tags$h4("Expected annual damages in percentage of the value of total assets in a country"),
+  tags$h4("5-years cumulated % of expected annual damages"),
   
   fluidRow(
     column(
@@ -284,8 +283,7 @@ ui <- fluidPage(
         selectInput("rcp", "RCP:", choices = unique(ead_world$rcp)),
         selectInput("quantile", "Quantile:", choices = unique(ead_world$quantile)),
         selectInput("adaptation", "Adaptation:", choices = unique(ead_world$adaptation)),
-        selectInput("time", "time:", choices = seq(2020,2100)),
-        selectInput("NLD", "Netherlands?:", choices = c("Yes","No"))
+        selectInput("time", "time:", choices = seq(2020,2100, 5))
       )),
     column(
       width = 9,  # Main plot column
@@ -295,27 +293,19 @@ ui <- fluidPage(
 # Server
 server <- function(input, output) {
   filtered_data <- reactive({
-    if(input$NLD == "Yes"){
-      ead_world |> filter(
-        rcp == input$rcp,
-        quantile == input$quantile,
-        adaptation == input$adaptation,
-        time == input$time)}
-    else{
-      ead_world |> filter(
-        rcp == input$rcp,
-        quantile == input$quantile,
-        adaptation == input$adaptation,
-        time == input$time,
-        locationid != "NLD")}
+    ead_world |> filter(
+      rcp == input$rcp,
+      quantile == input$quantile,
+      adaptation == input$adaptation,
+      time == input$time)
   })
   
   output$plot <- renderPlot({
     ggplot(st_as_sf(filtered_data())) +
-      geom_sf(aes(fill = perc_damages)) +
+      geom_sf(aes(fill = cumulated_shock)) +
       scale_fill_gradientn(
-        colours = c("lightyellow", "khaki1", "gold", "orange", "orangered2", "red3", "purple4"),
-        values = rescale(c(0, 1, 2, 4, 8, 16, 32)),
+        colours = c("lightyellow", "khaki1", "gold", "orange", "orangered2", "red3","purple4"),
+        values = rescale(-c(0, 2, 4, 8, 16, 32, 99)),
         na.value = "lightgrey"
       ) +
       theme_minimal() +
@@ -323,7 +313,7 @@ server <- function(input, output) {
                          "| Quantile:", input$quantile,
                          "| Adaptation:", input$adaptation,
                          "| time:", input$time),
-           fill="% of tot assets",
+           fill="1 - %cumgrowth",
            caption = "Data relaborated from the DIVA model")
   })
 }
