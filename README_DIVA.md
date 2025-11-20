@@ -1,4 +1,4 @@
-# DIVA output
+# DIVA
 
 The dataset is structured into three levels: **local "GADM1"**, **national "COUNTRY"**, and **global "GLOBAL"**. Each level provides data on **physical damages, coastal flooding projections, population and asset exposure and sea-level rise (SLR) impacts**.
 The dataset includes information on **areas, populations and assets at risk** based on specific elevation thresholds, along with **adaptation costs and other variables related to coastal protection and adaptation strategies**.  
