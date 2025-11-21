@@ -179,37 +179,38 @@ world <- tibble(ne_countries(scale = "medium", returnclass = "sf")) |> rename(lo
   mutate(locationid = if_else(iso_a3_eh %in% c("FRA", "NOR"), iso_a3_eh, locationid)) |> 
   select(locationid, geometry) |> filter(locationid != -99)
 
-# "epp": expected people flooded
-epp <- left_join(pop_shock_growth_iso, world, join_by(locationid)) 
+# "epp": 5y cumulated shock (expected people flooded)
+epp <- left_join(pop_shock_5y_iso, world, join_by(locationid))
+# "epp_cum": cumulated shock 2018-2070
 epp_cum <- left_join(pop_shock_cum_iso, world, join_by(locationid))
 
-epp_missing <- anti_join(world, pop_shock_growth_iso, join_by(locationid))
+epp_missing <- anti_join(world, pop_shock_5y_iso, join_by(locationid))
 
 structure <- colnames(epp |> select(rcp:time))
-cols_values <- tail(names(pop_shock_growth_iso), 5)
-epp_world <- bind_rows(epp, crossjoin_tobind(epp_missing, epp, structure, cols_values, NA))
-
-# cumulative values (2018-2070)
 structure2 <- colnames(epp_cum |> select(rcp:adaptation))
-cols_values2 <- tail(names(pop_shock_cum_iso), 2)
-epp_cum_world <- bind_rows(epp_cum, crossjoin_tobind(epp_missing, epp_cum, structure2, cols_values2, NA))
+cols_values <- tail(names(pop_shock_5y_iso), 2)
 
-#data for the Netherlands are incredibly high, so I rescale them for visualisation purposes
-epp_cum_world_revisited <- epp_cum_world |> 
-  mutate(cumulated_shock = ifelse(cumulated_shock < -100, -100, cumulated_shock))
+epp_world <- bind_rows(epp, crossjoin_tobind(epp_missing, epp, structure, cols_values, NA)) |> 
+  mutate(cumulated_shock = if_else(locationid=="NLD", NA, cumulated_shock))
+
+epp_cum_world <- bind_rows(epp_cum, crossjoin_tobind(epp_missing, epp_cum, structure2, cols_values, NA)) |> 
+  mutate(cumulated_shock = if_else(locationid=="NLD", NA, cumulated_shock))
+
+#data for the Netherlands are wrong (for now), so I rescale them for visualisation purposes
 
 
 
 # maps of the cumulated shocks (2018-2070)
 #### customizable parameters and choice to save output ###
-plot_world_cum("population", epp_cum_world_revisited, scen = 370, quant = 0.95, adapt = "Constant dike height")
+plot_world_cum("population", epp_cum_world, scen = 370, quant = 0.95, adapt = "Constant dike height")
 
 
 
 #Selection chart
 ui <- fluidPage(
   titlePanel("World map of sea level rise impacts"),
-  tags$h4("Expected poeple flooded in percentage of the total population in a country"),
+  tags$h4("5-years cumulated % of expected people flooded"),
+  
   fluidRow(
     column(
       width = 3,  # Sidebar column
@@ -217,8 +218,7 @@ ui <- fluidPage(
         selectInput("rcp", "RCP:", choices = unique(epp_world$rcp)),
         selectInput("quantile", "Quantile:", choices = unique(epp_world$quantile)),
         selectInput("adaptation", "Adaptation:", choices = unique(epp_world$adaptation)),
-        selectInput("time", "time:", choices = seq(2020,2100)),
-        selectInput("NLD", "Netherlands?:", choices = c("Yes","No"))
+        selectInput("time", "time:", choices = seq(2020,2100, 5))
       )),
     column(
       width = 9,  # Main plot column
@@ -228,27 +228,19 @@ ui <- fluidPage(
 # Server
 server <- function(input, output) {
   filtered_data <- reactive({
-    if(input$NLD == "Yes"){
-      epp_world |> filter(
-        rcp == input$rcp,
-        quantile == input$quantile,
-        adaptation == input$adaptation,
-        time == input$time)}
-    else{
-      epp_world |> filter(
-        rcp == input$rcp,
-        quantile == input$quantile,
-        adaptation == input$adaptation,
-        time == input$time,
-        locationid != "NLD")}
+    epp_world |> filter(
+      rcp == input$rcp,
+      quantile == input$quantile,
+      adaptation == input$adaptation,
+      time == input$time)
   })
   
   output$plot <- renderPlot({
     ggplot(st_as_sf(filtered_data())) +
-      geom_sf(aes(fill = perc_damages)) +
+      geom_sf(aes(fill = cumulated_shock)) +
       scale_fill_gradientn(
-        colours = c("lightyellow", "khaki1", "gold", "orange", "orangered2", "red3", "purple4"),
-        values = rescale(c(0, 1, 2, 4, 8, 16, 32)),
+        colours = c("lightyellow", "khaki1", "gold", "orange", "orangered2", "red3","purple4"),
+        values = rescale(-c(0, 2, 4, 8, 16, 32, 99)),
         na.value = "lightgrey"
       ) +
       theme_minimal() +
@@ -256,11 +248,10 @@ server <- function(input, output) {
                          "| Quantile:", input$quantile,
                          "| Adaptation:", input$adaptation,
                          "| time:", input$time),
-           fill="% of tot pop",
+           fill="1 - %cumgrowth",
            caption = "Data relaborated from the DIVA model")
   })
 }
 
 # run shinyApp to go to the dashboard
 shinyApp(ui = ui, server = server)
-

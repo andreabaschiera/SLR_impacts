@@ -258,7 +258,7 @@ ead_world <- bind_rows(ead, crossjoin_tobind(ead_missing, ead, structure, cols_v
   mutate(cumulated_shock = if_else(locationid=="NLD", NA, cumulated_shock))
 
 structure2 <- colnames(ead_cum |> select(rcp:adaptation))
-ead_cum_world <- bind_rows(ead_cum, crossjoin_tobind(ead_missing, ead_cum, structure2, cols_values2, NA)) |> 
+ead_cum_world <- bind_rows(ead_cum, crossjoin_tobind(ead_missing, ead_cum, structure2, cols_values, NA)) |> 
   mutate(cumulated_shock = if_else(locationid=="NLD", NA, cumulated_shock))
 
 #data for the Netherlands are wrong (for now), so I rescale them for visualisation purposes
@@ -267,7 +267,7 @@ ead_cum_world <- bind_rows(ead_cum, crossjoin_tobind(ead_missing, ead_cum, struc
 
 # maps of the cumulated shocks (2018-2070)
 #### customizable parameters and choice to save output ###
-plot_world_cum("capital",ead_cum_world_revisited, scen = 126, quant = 0.05, adapt = "Constant dike height")
+plot_world_cum("capital",ead_cum_world, scen = 126, quant = 0.05, adapt = "Constant dike height")
 
 
 
